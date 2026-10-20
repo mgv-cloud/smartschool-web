@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api';
 
 interface OnboardingStatus {
-  school: { name: string; status: string };
+  // Absent for the platform owner (SUPER_ADMIN), who doesn't belong to any one school.
+  school?: { name: string; status: string } | null;
   steps: { schoolInfo: boolean; campus: boolean; academicSession: boolean };
 }
 
@@ -14,12 +15,32 @@ export default function DashboardHome() {
     apiRequest<OnboardingStatus>('/onboarding/status').then(setStatus).catch(() => {});
   }, []);
 
+  const isPlatformOwner = Boolean(status && !status.school);
   const allDone = status && Object.values(status.steps).every(Boolean);
+
+  if (isPlatformOwner) {
+    return (
+      <div className="p-8 max-w-3xl">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Welcome, platform owner 👋</h1>
+        <p className="text-gray-500 mb-6">You're signed in with the platform-level account.</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-6 text-sm text-gray-600 space-y-3">
+          <p>
+            This account owns the SmartSchool AI platform, so it doesn't belong to any one school and has no school
+            data of its own. The school screens in the sidebar are for each school's own administrators.
+          </p>
+          <p>
+            To work inside a school, sign out and sign in with that school's admin email, password and subdomain.
+            Platform-wide management screens (schools, subscriptions) aren't built yet.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-4xl">
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-        Welcome{status ? `, ${status.school.name}` : ''} 👋
+        Welcome{status?.school ? `, ${status.school.name}` : ''} 👋
       </h1>
       <p className="text-gray-500 mb-8">Here's where things stand.</p>
 

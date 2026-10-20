@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api';
 
 interface School { id: string; name: string; subdomain: string; logoUrl: string | null; currency: string; timezone: string; status: string; }
-interface Status { school: School; steps: { schoolInfo: boolean; campus: boolean; academicSession: boolean } }
+interface Status { school?: School | null; steps: { schoolInfo: boolean; campus: boolean; academicSession: boolean } }
 
 const CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR', 'USD'];
 
@@ -14,10 +14,12 @@ export default function SchoolProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [noSchool, setNoSchool] = useState(false); // platform owner: signed in, but not attached to a school
 
   const load = () =>
     apiRequest<Status>('/onboarding/status')
       .then((s) => {
+        if (!s.school) { setStatus(null); setNoSchool(true); return; }
         setStatus(s);
         setForm({ name: s.school.name, logoUrl: s.school.logoUrl ?? '', currency: s.school.currency, timezone: s.school.timezone });
       })
@@ -47,10 +49,15 @@ export default function SchoolProfilePage() {
       <p className="text-gray-500 mb-6">Your school's name, currency and time zone. These appear across invoices, reports and timetables.</p>
 
       {loading && <div className="text-sm text-gray-400">Loading…</div>}
+      {noSchool && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 text-sm text-gray-600">
+          You're signed in as the platform owner, which doesn't belong to a school. Sign in with a school admin account to view or edit a school's profile.
+        </div>
+      )}
       {error && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-3 py-2 mb-4">{error}</div>}
       {saved && <div className="bg-green-50 text-green-700 text-sm rounded-lg px-3 py-2 mb-4">Profile saved.</div>}
 
-      {status && (
+      {status && status.school && (
         <>
           <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 text-sm text-gray-600 grid grid-cols-2 gap-3">
             <div><div className="text-xs text-gray-400">Login subdomain</div><div className="font-medium text-gray-800">{status.school.subdomain}</div></div>
