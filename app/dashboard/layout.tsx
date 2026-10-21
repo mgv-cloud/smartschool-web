@@ -91,13 +91,28 @@ const NAV_SECTIONS: { label: string; items: { label: string; href: string; live:
   },
 ];
 
+// The platform owner has no school, so they get their own small menu instead of the school screens.
+const PLATFORM_NAV: typeof NAV_SECTIONS = [
+  { label: 'Platform', items: [
+    { label: 'Overview', href: '/dashboard', live: true },
+    { label: 'Schools & Subscriptions', href: '/dashboard/platform/schools', live: true },
+    { label: 'Audit Log', href: '/dashboard/platform/audit', live: true },
+  ] },
+];
+
+type Me = {
+  user: { firstName: string; lastName: string };
+  roles: string[];
+  school: { name: string; subscription?: { state: string; daysLeft: number } } | null;
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [me, setMe] = useState<{ user: { firstName: string; lastName: string }; roles: string[]; school: { name: string } | null } | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    apiRequest<typeof me>('/auth/me')
+    apiRequest<Me>('/auth/me')
       .then(setMe)
       .catch(() => router.push('/login'));
   }, [router]);
@@ -108,6 +123,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const interval = setInterval(loadCount, 30000); // poll every 30s — no websocket/push in this build yet
     return () => clearInterval(interval);
   }, []);
+
+  const isPlatformOwner = Boolean(me && !me.school && me.roles.includes('SUPER_ADMIN'));
+  const navSections = isPlatformOwner ? PLATFORM_NAV : NAV_SECTIONS;
+  const sub = me?.school?.subscription;
+  const showSubscriptionBanner = Boolean(sub && (sub.state === 'TRIAL' || sub.state === 'ACTIVE') && sub.daysLeft <= 14);
 
   const logout = () => {
     clearTokens();
@@ -132,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </a>
         </div>
         <nav className="flex-1 overflow-y-auto py-3">
-          {NAV_SECTIONS.map((section, i) => (
+          {navSections.map((section, i) => (
             <div key={i} className="mb-3">
               {section.label && (
                 <div className="px-5 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{section.label}</div>
@@ -161,7 +181,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button onClick={logout} className="text-xs text-red-600 hover:underline">Log out</button>
         </div>
       </aside>
-      <main className="flex-1 bg-gray-50 overflow-y-auto">{children}</main>
+      <main className="flex-1 bg-gray-50 overflow-y-auto">
+        {showSubscriptionBanner && sub && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm px-8 py-2.5">
+            {sub.state === 'TRIAL' ? 'Your free trial' : 'Your subscription'} ends in <strong>{sub.daysLeft} day{sub.daysLeft === 1 ? '' : 's'}</strong>.
+            Please contact SmartSchool support to {sub.state === 'TRIAL' ? 'subscribe' : 'renew'} so your school keeps its access.
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
